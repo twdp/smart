@@ -71,8 +71,8 @@ func (n *NodeModel) exec(context *Context) error {
 // 拦截方法
 func (n *NodeModel) intercept(interceptors lists.List, context *Context) error {
 	for _, v := range interceptors.Values() {
-		interceptor := v.(*Interceptor)
-		if err := (*interceptor).Intercept(context); err != nil {
+		interceptor := v.(Interceptor)
+		if err := interceptor.Intercept(context); err != nil {
 			return err
 		}
 	}
