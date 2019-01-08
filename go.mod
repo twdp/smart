@@ -1,6 +1,7 @@
 module tianwei.pro/smart
 
 require (
+	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/astaxie/beego v1.11.1
 	github.com/clbanning/mxj v1.8.3
 	github.com/emirpasic/gods v1.12.0
