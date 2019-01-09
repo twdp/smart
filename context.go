@@ -6,6 +6,9 @@ type Context struct {
 	// 当前引擎执行的实例
 	Instance *Instance
 
+	// 当前需要执行的模型
+	ProcessModel *ProcessModel
+
 	// 执行引擎
 	Engine Engine
 
@@ -17,4 +20,6 @@ type Context struct {
 	 * 针对join节点的处理
 	 */
 	 IsMerged bool
+
+	 Operator string
 }

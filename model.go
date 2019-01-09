@@ -335,17 +335,17 @@ func NewProcess(name, displayName string) *ProcessModel {
 func (p *ProcessModel) GetWorkModels() list.List {
 	r := list.New()
 	for _, e := range p.Nodes.Values() {
-		if v, ok := e.(*WorkModel); ok {
-			r.PushBack(v)
+		if _, ok := (e.(*NodeModel).Child).(*WorkModel); ok {
+			r.PushBack(e)
 		}
 	}
 	return *r
 }
 
-func (p *ProcessModel) GetStart() (*StartModel, error) {
+func (p *ProcessModel) GetStart() (*NodeModel, error) {
 	for _, e := range p.Nodes.Values() {
-		if v, ok := e.(*StartModel); ok {
-			return v, nil
+		if _, ok := (e.(*NodeModel).Child).(*StartModel); ok {
+			return e.(*NodeModel), nil
 		}
 	}
 	return nil, errors.New("没有start节点")

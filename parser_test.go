@@ -40,7 +40,7 @@ func TestXmlParser_ParseXml(t *testing.T) {
 		<b/>
 	</a></process>`
 	parse := &XmlParser{
-		ElementParserContainer: NewDefaultSnakerParserContainer(),
+		ElementParserContainer: NewDefaultSmartParserContainer(),
 	}
 	parse.ElementParserContainer.AddParserFactory("a", &AParserFactory{})
 
@@ -68,7 +68,7 @@ func (m *MockNodeParserFactory) NewParse() NodeParser {
 }
 
 func TestDefaultSnakerParserContainer_GetNodeParserFactory(t *testing.T) {
-	c := NewDefaultSnakerParserContainer()
+	c := NewDefaultSmartParserContainer()
 	m := &MockNodeParserFactory{}
 	c.container["a"] = m
 

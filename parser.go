@@ -52,7 +52,7 @@ const (
 )
 
 //
-type SnakerParserContainer interface {
+type SmartrParserContainer interface {
 
 	// 添加解析
 	AddParserFactory(elementName string, f NodeParserFactory)
@@ -95,11 +95,12 @@ func (d *DefaultSnakerParserContainer) GetNodeParserFactory(elementName string) 
 	}
 }
 
-func NewDefaultSnakerParserContainer() *DefaultSnakerParserContainer {
+func NewDefaultSmartParserContainer() *DefaultSnakerParserContainer {
 	container := make(map[string]NodeParserFactory)
 
 	// 注册解析工厂
 	container["start"] = &StartParserFactory{}
+	container["end"] = &StartParserFactory{}
 
 	return &DefaultSnakerParserContainer{
 		container,
@@ -127,7 +128,7 @@ func (a *AbstractNodeParser) Parse(element map[string]interface{}) (*NodeModel, 
 
 		switch vv.Kind() {
 		case reflect.Map:
-			tms.Add(vv)
+			tms.Add(v)
 		case reflect.Slice:
 			for _, k := range v.([]interface{}) {
 				tms.Add(k)
@@ -138,6 +139,12 @@ func (a *AbstractNodeParser) Parse(element map[string]interface{}) (*NodeModel, 
 
 	for _,  te := range tms.Values() {
 		tte := te.(map[string]interface{})
+		if _, ok := tte[AttrExpr]; !ok {
+			tte[AttrExpr] = ""
+		}
+		if _, ok := tte[AttrDisplayName]; !ok {
+			tte[AttrDisplayName] = ""
+		}
 		transition := &TransitionModel{
 			BaseModel: BaseModel{
 				Name: tte[AttrName].(string),
@@ -194,12 +201,14 @@ func (s *StartParser) newModel() *NodeModel {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+type Parser interface {
+	ParseXml(content string) (*ProcessModel, error)
+}
 
 
 type XmlParser struct {
 	// xml 元素解析容器
-	ElementParserContainer SnakerParserContainer
+	ElementParserContainer SmartrParserContainer
 }
 
 // 解析流程定义文件，并将解析后的对象放入模型容器中
@@ -225,8 +234,8 @@ func (x *XmlParser) ParseXml(content string) (*ProcessModel, error) {
 			case reflect.Slice:
 				// 节点类型多个时
 				// 是slice类型
-				for _, k := range v.([]interface{}) {
-					vvv := k.(map[string]interface{})
+				for _, kk := range v.([]interface{}) {
+					vvv := kk.(map[string]interface{})
 					vvv[ElementType] = k
 					if m, err := x.parseModel(vvv); err != nil {
 						return nil, err

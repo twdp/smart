@@ -1,10 +1,17 @@
 package smart
 
-import "tianwei.pro/kit/di"
+import (
+	"fmt"
+	"tianwei.pro/kit/di"
+)
 
 var Di = di.New()
 
 type Engine interface {
+
+	Parser() Parser
+
+	Instance() InstanceService
 
 	// 获取流程处理service
 	Process() ProcessService
@@ -12,12 +19,21 @@ type Engine interface {
 	// 获取表达式引擎
 	Expression() Expression
 
-	// 部署流程
-	Deploy(process *Process)
+	// 根据流程定义ID启动流程实例
+	StartInstanceById(id int64) (*Instance, error)
+
+	// 根据流程定义id和操作人|flag启动流程实例
+	StartInstanceByIdAndOperator(id int64, operator string) (*Instance, error)
+
+	// 根据流程定义id和操作人|flag和参数启动流程实例
+	StartInstanceByIdAndOperatorAndArgs(id int64, operator string, args map[string]interface{}) (*Instance, error)
+
 }
 
 // smart engine
 type SmartEngine struct {
+
+	instance InstanceService
 
 	// 流程处理service
 	process ProcessService
@@ -28,25 +44,41 @@ type SmartEngine struct {
 	// 缓存控制器
 	cache CacheManager
 
-	xmlParser *XmlParser
+	parser Parser
 }
 
 func NewSmartEngine() Engine {
 	engine := &SmartEngine{}
 
+	i := NewSmartInstanceService(engine)
 	p := NewSmartProcessService(engine)
 	e := NewSmartExpression()
 	c := NewSmartCacheManager()
 	x := &XmlParser{
-		NewDefaultSnakerParserContainer(),
+		NewDefaultSmartParserContainer(),
 	}
 
-	engine.xmlParser = x
+	engine.instance = i
+	engine.parser = x
 	engine.expression = e
 	engine.process = p
 	engine.cache = c
 
 	return engine
+}
+
+func (s *SmartEngine) Parser() Parser {
+	if s.parser == nil {
+		panic("流程解析实例未设置")
+	}
+	return s.parser
+}
+
+func (s *SmartEngine) Instance() InstanceService {
+	if s.instance == nil {
+		panic("未设置流程实例service")
+	}
+	return s.instance
 }
 
 // 获取流程处理service
@@ -65,8 +97,55 @@ func (s *SmartEngine) Expression() Expression {
 	return s.expression
 }
 
-// 部署流程
-func (s *SmartEngine) Deploy(process *Process) {
+func (s *SmartEngine) StartInstanceById(id int64) (*Instance, error) {
+	return s.StartInstanceByIdAndOperatorAndArgs(id, "", nil)
+}
 
-	panic("implement me")
+func (s *SmartEngine) StartInstanceByIdAndOperator(id int64, operator string) (*Instance, error) {
+	return s.StartInstanceByIdAndOperatorAndArgs(id, operator, nil)
+}
+
+func (s *SmartEngine) StartInstanceByIdAndOperatorAndArgs(id int64, operator string, args map[string]interface{}) (*Instance, error) {
+	if nil == args {
+		args = make(map[string]interface{})
+	}
+	process := s.Process().GetProcessById(id)
+
+	return s.startProcess(process, operator, args)
+}
+
+func (s *SmartEngine) startProcess(process *Process, operator string, args map[string]interface{}) (*Instance, error) {
+	if context, err := s.execute(process, operator, args, 0, ""); nil != err {
+		return nil, err
+	} else if pm, err := s.Process().ParseProcess(process); err != nil {
+		return nil, err
+	} else {
+		context.ProcessModel = pm
+		if pm != nil {
+			if start, err := pm.GetStart(); err != nil {
+				return nil, err
+			} else if err = start.Execute(context); err != nil {
+				return nil, err
+			}
+		}
+
+		return context.Instance, nil
+	}
+}
+
+func (s *SmartEngine) execute(process *Process, operator string, args map[string]interface{}, parentId int64, parentNodeName string) (*Context, error) {
+	if instance, err := s.Instance().CreateInstanceUseParentInfo(process, operator, args, parentId, parentNodeName); err != nil {
+		return nil, err
+	} else {
+		fmt.Println(instance)
+		current := &Context{
+			Engine: s,
+			Instance: instance,
+			Args: args,
+			Operator: operator,
+		}
+
+		return current, nil
+	}
+
 }
