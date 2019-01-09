@@ -11,4 +11,10 @@ type Context struct {
 
 	// 上下文参数
 	Args map[string]interface{}
+
+	/**
+	 * 是否已合并
+	 * 针对join节点的处理
+	 */
+	 IsMerged bool
 }

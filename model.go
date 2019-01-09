@@ -7,6 +7,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/emirpasic/gods/lists"
 	"github.com/emirpasic/gods/lists/arraylist"
+	"reflect"
 )
 
 type BaseModel struct {
@@ -18,8 +19,10 @@ type BaseModel struct {
 	DisplayName string
 }
 
-// todo: fire
-
+// 将执行对象execution交给具体的处理器处理
+func (b *BaseModel) fire(handler Handler, ctx *Context) error {
+	return handler.Handle(ctx)
+}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -36,6 +39,12 @@ type NodeModel struct {
 	// 后置局部拦截器实例集合
 	PostInterceptors lists.List
 
+	Child NodeModelChild
+}
+
+//
+type NodeModelChild interface {
+	exec(context *Context) error
 }
 
 func NewNodeModel(name, displayName string) *NodeModel {
@@ -65,7 +74,10 @@ func (n *NodeModel) Execute(context *Context) error {
 
 // 具体节点模型需要完成的执行逻辑
 func (n *NodeModel) exec(context *Context) error {
-	panic("子模型需要实现exec方法")
+	if n.Child == nil {
+		panic("初始化NodeModel时，请设置Child")
+	}
+	return n.Child.exec(context)
 }
 
 // 拦截方法
@@ -92,6 +104,65 @@ func (n *NodeModel) runOutTransition(context *Context) error {
 }
 
 
+/**
+ * 根据父节点模型、当前节点模型判断是否可退回。可退回条件：
+ * 1、满足中间无fork、join、subprocess模型
+ * 2、满足父节点模型如果为任务模型时，参与类型为any
+ */
+func (n *NodeModel) CanRejected(current *NodeModel, parent *NodeModel) bool {
+	switch t := (interface{})(parent).(type) {
+	case *TaskModel:
+		return t.PerformType == PerformtypeAll
+	}
+	result := false
+	for _, e := range n.Outputs.Values() {
+		tm := e.(*TransitionModel)
+		source := tm.Source
+		if source == parent {
+			return true
+		}
+		switch s := (interface{})(source).(type) {
+		case *ForkModel:
+			logs.Debug("can rejected source. %v", s)
+			continue
+		case *JoinModel:
+			logs.Debug("can rejected source. %v", s)
+			continue
+		case *SubProcessModel:
+			logs.Debug("can rejected source. %v", s)
+			continue
+		case *StartModel:
+			logs.Debug("can rejected source. %v", s)
+			continue
+		}
+		result = result || n.CanRejected(source, parent)
+	}
+	return result
+}
+
+func (n *NodeModel) getNextModels(clazz interface{}) lists.List {
+	r := arraylist.New()
+	c := reflect.TypeOf(clazz)
+	for _, o := range n.Outputs.Values() {
+		n.AddNextModels(r, o.(*TransitionModel), c)
+	}
+	return r
+}
+
+func (n *NodeModel) AddNextModels(r lists.List, tm *TransitionModel, t reflect.Type) {
+	target := reflect.TypeOf(tm.Target)
+	if t.AssignableTo(target) {
+		r.Add(tm.Target)
+	} else {
+		for _, o := range tm.Target.Outputs.Values() {
+			n.AddNextModels(r, o.(*TransitionModel), t)
+		}
+	}
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+
 type TransitionModel struct {
 	BaseModel
 
@@ -115,28 +186,44 @@ type TransitionModel struct {
 }
 
 func (t *TransitionModel) Execute(context *Context) error {
+	if !t.Enable {
+		return nil
+	}
+	//如果目标节点模型为TaskModel，则创建task
+	if isTask, ok := t.Target.Child.(*TaskModel); ok {
+		return t.fire(&CreateTaskHandler{
+			TaskModel: isTask,
+		}, context)
+	} else if isSubProcess, ok := t.Target.Child.(*SubProcessModel); ok {
+		//如果目标节点模型为SubProcessModel，则启动子流程
+
+		return t.fire(&StartSubProcessHandler{
+			SubProcessModel: isSubProcess,
+		}, context)
+	} else {
+		//如果目标节点模型为其它控制类型，则继续由目标节点执行
+		return t.Target.Execute(context)
+	}
 	return nil
 }
 
-
+// 开始节点定义start元素
 type StartModel struct {
 	NodeModel
 }
 
-func (s *StartModel) Execute(context *Context) error {
+func (s *StartModel) exec(context *Context) error {
 	return s.runOutTransition(context)
 }
 
-
+// 结束节点end元素
 type EndModel struct {
 
 	NodeModel
 }
 
-// todo::
 func (e *EndModel) exec(context *Context) error {
-	//e.Fire(, execution)
-	return nil
+	return e.fire(&EndProcessHandler{}, context)
 }
 
 
@@ -178,7 +265,7 @@ type DecisionModel struct {
 
 
 func (d *DecisionModel) exec(context *Context) error {
-	logs.Info("%d->decision execution.getArgs():%v", 11, context.Args)
+	logs.Info("%d->decision execution.getArgs():%v", context.Instance.Id, context.Args)
 
 	isFound := false
 	for _, e := range d.Outputs.Values() {
@@ -192,7 +279,7 @@ func (d *DecisionModel) exec(context *Context) error {
 	}
 
 	if !isFound {
-		return errors.New(fmt.Sprintf("%d->decision节点无法确定下一步执行路线", 11))
+		return fmt.Errorf("%d->decision节点无法确定下一步执行路线", context.Instance.Id)
 	}
 	return nil
 }
@@ -206,17 +293,21 @@ func (f *ForkModel) exec(context *Context)error {
 	return f.runOutTransition(context)
 }
 
+// 合并定义join元素
 type JoinModel struct {
 	NodeModel
 
 }
 
+func (j *JoinModel) exec(context *Context) error {
+	if err := j.fire(&MergeBranchHandler{ JoinModel: j }, context); err != nil {
+		return err
+	} else if context.IsMerged {
+		return j.runOutTransition(context)
+	}
+	return nil
+}
 // todo::
-//func (j *JoinModel) exec(execution *Execution) error {
-//
-//}
-
-
 type ProcessModel struct {
 
 	BaseModel
@@ -289,8 +380,36 @@ func (s *SubProcessModel) exec(context *Context) error {
 
 
 type TaskModel struct {
+	WorkModel
 
 	PerformType int8
 
+	TaskType int8
+
+	// 期望用时
+	ExpectTime string
+
+	// 提醒时间
+	RemindTime string
+
+	// 提醒间隔(分钟)
+	RemindRepeat string
+
+	// 是否自动执行
+	AutoExecute bool
 }
 
+func (t *TaskModel) Exec(context *Context) error {
+	//  any方式，直接执行输出变迁
+	// all方式，需要判断是否已全部合并
+	// 由于all方式分配任务，是每个执行体一个任务
+	// 那么此时需要判断之前分配的所有任务都执行完成后，才可执行下一步，否则不处理
+	if t.PerformType == PerformtypeAny {
+		return t.runOutTransition(context)
+	} else if err := t.fire(&MergeActorHandler{ TaskName: t.Name }, context); err != nil {
+		return err
+	} else if context.IsMerged {
+		return t.runOutTransition(context)
+	}
+	return nil
+}

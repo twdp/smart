@@ -37,14 +37,18 @@ func (a *AbstractMergeHandler) Handle(ctx *Context) error {
 
 type MergeActorHandler struct {
 	AbstractMergeHandler
+
+	TaskName string
 }
 
 type MergeBranchHandler struct {
 	AbstractMergeHandler
+
+	JoinModel *JoinModel
 }
 
 type CreateTaskHandler struct {
-
+	TaskModel *TaskModel
 }
 
 func (c *CreateTaskHandler) Handle(ctx *Context) error {
@@ -52,7 +56,7 @@ func (c *CreateTaskHandler) Handle(ctx *Context) error {
 }
 
 type StartSubProcessHandler struct {
-
+	SubProcessModel *SubProcessModel
 }
 
 func (s *StartSubProcessHandler) Handle(ctx *Context) error {

@@ -7,7 +7,8 @@ const (
 	ProcessStop
 
 
-	PerformtypeAll = iota
+	PerformtypeAll = iota // 参与者fork任务,所有人均需要处理
+	PerformtypeAny   // 普通任务
 
 )
 
