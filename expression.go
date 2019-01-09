@@ -17,6 +17,10 @@ type SmartExpression struct {
 
 }
 
+func NewSmartExpression() Expression {
+	return &SmartExpression{}
+}
+
 func (s *SmartExpression) Eval(expr string, params map[string]interface{}) bool {
 	if r := s.Evaluate(expr, params); r == nil {
 		return false

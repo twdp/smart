@@ -3,6 +3,9 @@ package smart
 
 const (
 	ProcessInit = iota
+	ProcessRunning
+	ProcessStop
+
 
 	PerformtypeAll = iota
 
