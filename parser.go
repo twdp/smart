@@ -6,6 +6,7 @@ import (
 	"github.com/clbanning/mxj"
 	"github.com/emirpasic/gods/lists/arraylist"
 	"reflect"
+	"unsafe"
 )
 
 // xml 节点信息
@@ -100,7 +101,10 @@ func NewDefaultSmartParserContainer() *DefaultSnakerParserContainer {
 
 	// 注册解析工厂
 	container["start"] = &StartParserFactory{}
-	container["end"] = &StartParserFactory{}
+	container["end"] = &EndParserFactory{}
+	container["task"] = &TaskParserFactory{}
+	container["decision"] = &DecisionParserFactory{}
+
 
 	return &DefaultSnakerParserContainer{
 		container,
@@ -157,15 +161,27 @@ func (a *AbstractNodeParser) Parse(element map[string]interface{}) (*NodeModel, 
 		m.Outputs.Add(transition)
 	}
 
-	a.parseNode(m, element)
+	//a.parseNode(m, element)
 
+	if p, ok := a.Parent.(ParseNode); ok {
+		if err :=  p.parseNode(m, element); err != nil {
+			return nil, err
+		}
+	}
 	return m, nil
 }
 
-// 子类可覆盖此方法，完成特定的解析
-func (a *AbstractNodeParser) parseNode(model *NodeModel, element map[string]interface{}) error {
-	return nil
+type ParseNode interface {
+	parseNode(model *NodeModel, element map[string]interface{}) error
 }
+
+// 子类可覆盖此方法，完成特定的解析
+//func (a *AbstractNodeParser) parseNode(model *NodeModel, element map[string]interface{}) error {
+//	if p, ok := a.Parent.(ParseNode); ok {
+//		return p.parseNode(model, element)
+//	}
+//	return nil
+//}
 
 func (a *AbstractNodeParser) newModel() *NodeModel {
 	panic("未实现此方法")
@@ -200,6 +216,121 @@ func (s *StartParser) newModel() *NodeModel {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type EndParser struct {
+	AbstractNodeParser
+}
+
+type EndParserFactory struct {
+
+}
+
+func (e *EndParserFactory) NewParse() NodeParser {
+	end := new(EndParser)
+
+	end.Parent = end
+	return end
+}
+
+func (e *EndParser) newModel() *NodeModel {
+	newNode := NewNodeModel("", "")
+	endModel := &EndModel{ NodeModel: *newNode }
+	newNode.Child = endModel
+
+	return newNode
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type CustomParser struct {
+	AbstractNodeParser
+}
+
+type CustomParserFactory struct {
+
+}
+
+func (c *CustomParserFactory) NewParse() NodeParser {
+	custom := new(CustomParser)
+	custom.Parent = custom
+	return custom
+}
+
+func (c *CustomParser) newModel() *NodeModel {
+	newNode := NewNodeModel("", "")
+	workModel := WorkModel{ *newNode, "" }
+	customModel := &CustomModel{ workModel, "" }
+	newNode.Child = customModel
+	return newNode
+}
+
+func (a *CustomParser) parseNode(model *NodeModel, element map[string]interface{}) error {
+	customModel := (*CustomModel)(unsafe.Pointer(model))
+	if element[AttrClazz] == nil {
+		return errors.New("自定义模型需要指定clazz")
+	}
+	customModel.Clazz = element[AttrClazz].(string)
+	return nil
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type DecisionParser struct {
+	AbstractNodeParser
+}
+
+type DecisionParserFactory struct {
+
+}
+
+func (df *DecisionParserFactory) NewParse() NodeParser {
+	d := new(DecisionParser)
+	d.Parent = d
+	return d
+}
+
+func (df *DecisionParser) newModel() *NodeModel {
+	newNode := NewNodeModel("", "")
+	decisionModel := &DecisionModel{ NodeModel: *newNode }
+
+	newNode.Child = decisionModel
+	return newNode
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type TaskParser struct {
+	AbstractNodeParser
+}
+
+type TaskParserFactory struct {
+
+}
+
+func (tf *TaskParserFactory) NewParse() NodeParser {
+	t := new(TaskParser)
+	t.Parent = t
+	return t
+}
+
+func (tp *TaskParser) newModel() *NodeModel {
+	newNode := NewNodeModel("", "")
+	workModel := WorkModel{ *newNode, "" }
+
+	taskModel := &TaskModel{ WorkModel: workModel }
+
+	newNode.Child = taskModel
+	return newNode
+}
+
+func (tp *TaskParser) parseNode(model *NodeModel, element map[string]interface{}) error {
+	task := (*TaskModel)(unsafe.Pointer(model))
+	task.AssignTo = element[AttrAssignee].(string)
+
+	return nil
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Parser interface {
 	ParseXml(content string) (*ProcessModel, error)

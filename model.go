@@ -10,7 +10,7 @@ import (
 	"reflect"
 )
 
-type BaseModel struct {
+type  BaseModel struct {
 
 	// 元素名称
 	Name string
@@ -315,7 +315,7 @@ type ProcessModel struct {
 	// 节点元素集合
 	Nodes lists.List
 
-	TaskModels lists.List
+	//TaskModels lists.List
 
 	Process *Process
 }
@@ -327,7 +327,7 @@ func NewProcess(name, displayName string) *ProcessModel {
 			DisplayName: displayName,
 		},
 		Nodes: arraylist.New(),
-		TaskModels: arraylist.New(),
+		//TaskModels: arraylist.New(),
 	}
 }
 
@@ -397,9 +397,12 @@ type TaskModel struct {
 
 	// 是否自动执行
 	AutoExecute bool
+
+	// 给谁的
+	AssignTo string
 }
 
-func (t *TaskModel) Exec(context *Context) error {
+func (t *TaskModel) exec(context *Context) error {
 	//  any方式，直接执行输出变迁
 	// all方式，需要判断是否已全部合并
 	// 由于all方式分配任务，是每个执行体一个任务
