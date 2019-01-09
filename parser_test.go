@@ -40,9 +40,9 @@ func TestXmlParser_ParseXml(t *testing.T) {
 		<b/>
 	</a></process>`
 	parse := &XmlParser{
-		elementParserContainer: NewDefaultSnakerParserContainer(),
+		ElementParserContainer: NewDefaultSnakerParserContainer(),
 	}
-	parse.elementParserContainer.AddParserFactory("a", &AParserFactory{})
+	parse.ElementParserContainer.AddParserFactory("a", &AParserFactory{})
 
 	model, err := parse.ParseXml(x)
 	fmt.Println(model, err)

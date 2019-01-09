@@ -6,7 +6,6 @@ import (
 	"github.com/clbanning/mxj"
 	"github.com/emirpasic/gods/lists/arraylist"
 	"reflect"
-	"unsafe"
 )
 
 // xml 节点信息
@@ -97,8 +96,13 @@ func (d *DefaultSnakerParserContainer) GetNodeParserFactory(elementName string) 
 }
 
 func NewDefaultSnakerParserContainer() *DefaultSnakerParserContainer {
+	container := make(map[string]NodeParserFactory)
+
+	// 注册解析工厂
+	container["start"] = &StartParserFactory{}
+
 	return &DefaultSnakerParserContainer{
-		container: make(map[string]NodeParserFactory),
+		container,
 	}
 }
 
@@ -178,9 +182,14 @@ func (s *StartParserFactory) NewParse() NodeParser {
 
 func (s *StartParser) newModel() *NodeModel {
 	newNode := NewNodeModel("", "")
-	return (*NodeModel) (unsafe.Pointer(&StartModel{
-		NodeModel: *newNode,
-	}))
+	startModel := &StartModel{ NodeModel: *newNode }
+	newNode.Child = startModel
+
+
+	return newNode
+	//return (*NodeModel) (unsafe.Pointer(&StartModel{
+	//	NodeModel: *newNode,
+	//}))
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -190,7 +199,7 @@ func (s *StartParser) newModel() *NodeModel {
 
 type XmlParser struct {
 	// xml 元素解析容器
-	elementParserContainer SnakerParserContainer
+	ElementParserContainer SnakerParserContainer
 }
 
 // 解析流程定义文件，并将解析后的对象放入模型容器中
@@ -250,5 +259,5 @@ func (x *XmlParser) ParseXml(content string) (*ProcessModel, error) {
 
 // 对流程定义xml的节点，根据其节点对应的解析器解析节点内容
 func (x *XmlParser) parseModel(node map[string]interface{}) (*NodeModel, error) {
-	return x.elementParserContainer.GetNodeParserFactory(node[ElementType].(string)).NewParse().Parse(node)
+	return x.ElementParserContainer.GetNodeParserFactory(node[ElementType].(string)).NewParse().Parse(node)
 }

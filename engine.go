@@ -27,6 +27,8 @@ type SmartEngine struct {
 
 	// 缓存控制器
 	cache CacheManager
+
+	xmlParser *XmlParser
 }
 
 func NewSmartEngine() Engine {
@@ -35,7 +37,11 @@ func NewSmartEngine() Engine {
 	p := NewSmartProcessService(engine)
 	e := NewSmartExpression()
 	c := NewSmartCacheManager()
+	x := &XmlParser{
+		NewDefaultSnakerParserContainer(),
+	}
 
+	engine.xmlParser = x
 	engine.expression = e
 	engine.process = p
 	engine.cache = c
