@@ -51,9 +51,10 @@ type Process struct {
 	// 流程定义内容
 	Content string `orm:"type(text)"`
 
-	CreatedAt orm.DateTimeField `orm:"auto_now_add"`
-
-	UpdatedAt orm.DateTimeField `orm:"auto_now"`
+	// todo:: 现在只针对TaskModel
+	// 比如: 申请权限时，提交之后就可以看到整个流程
+	// 是否预生成任务
+	PreGeneratedTask bool
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -73,15 +74,17 @@ type Instance struct {
 	Content string `orm:"type(text)"`
 
 	// 发布者
-	Deployer string
-
+	Deployer string `orm:"size(64);index"`// 谁创建的
 
 	// 流程实例附属变量
 	variable map[string]interface{} `orm:"-"`
 
-	VariableJson string `orm:"type(text)"`
+	VariableJson string `orm:"type(text);default()"`
 
-	CreatedBy string `orm:"size(64);index"`// 谁创建的
+	// 创建子流程时，在哪个流程和节点上创建出来的
+	ParentId int64
+
+	ParentNodeName string
 
 	Base
 
@@ -96,6 +99,9 @@ func (i *Instance) SetVariable(m map[string]interface{}) {
 }
 
 func (i *Instance) GetVariable() map[string]interface{} {
+	if i.variable != nil {
+		return i.variable
+	}
 	if i.variable == nil && i.VariableJson != ""{
 		i.variable = make(map[string]interface{})
 		err := json.Unmarshal([]byte(i.VariableJson), i.variable)
@@ -113,6 +119,11 @@ func (i *Instance) GetVariable() map[string]interface{} {
 
 func (i *Instance) AddVariable(n string, p interface{}) {
 	i.GetVariable()[n] = p
+	b, err := json.Marshal(i.variable)
+	if err != nil {
+		logs.Error("marshal variable failed. m: %v, err: %v", i.variable, err)
+	}
+	i.VariableJson = string(b)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////

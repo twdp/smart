@@ -7,6 +7,7 @@ require (
 	github.com/clbanning/mxj v1.8.3
 	github.com/emirpasic/gods v1.12.0
 	github.com/goburrow/cache v0.1.0
+	github.com/pkg/errors v0.8.0
 
 	tianwei.pro/beego-guava v0.0.0-20190108132444-348c37386e91
 	tianwei.pro/kit v0.0.0-20190108124826-8c52574fbcb8
