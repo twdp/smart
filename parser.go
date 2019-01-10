@@ -4,9 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clbanning/mxj"
-	"github.com/emirpasic/gods/lists/arraylist"
 	"reflect"
-	"unsafe"
 )
 
 // xml 节点信息
@@ -73,11 +71,11 @@ type NodeParserFactory interface {
 type NodeParser interface {
 
 	// 节点dom元素解析方法，由实现类完成解析
-	Parse(element map[string]interface{}) (*NodeModel, error)
+	Parse(element map[string]interface{}) (INodeModel, error)
 }
 
 type ModelGen interface {
-	newModel() *NodeModel
+	newModel() INodeModel
 }
 
 type DefaultSnakerParserContainer struct {
@@ -118,32 +116,31 @@ type AbstractNodeParser struct {
 	Parent ModelGen
 }
 
-func (a *AbstractNodeParser) Parse(element map[string]interface{}) (*NodeModel, error) {
+func (a *AbstractNodeParser) Parse(element map[string]interface{}) (INodeModel, error) {
 	m := a.Parent.newModel()
-	//a.model = model
-	m.Name = element[AttrName].(string)
-	m.DisplayName = element[AttrDisplayName].(string)
+
+	m.SetName(element[AttrName].(string))
+	m.SetDisplayName(element[AttrDisplayName].(string))
+
 	// interceptor
 
 	v := element[NodeTransition]
-	tms := arraylist.New()
-
+	var tms []map[string]interface{}
 	if  v != nil {
 		vv := reflect.ValueOf(v)
 
 		switch vv.Kind() {
 		case reflect.Map:
-			tms.Add(v)
+			tms = append(tms, v.(map[string]interface{}))
 		case reflect.Slice:
 			for _, k := range v.([]interface{}) {
-				tms.Add(k)
+				tms = append(tms, k.(map[string]interface{}))
 			}
 		}
 	}
 
 
-	for _,  te := range tms.Values() {
-		tte := te.(map[string]interface{})
+	for _,  tte := range tms {
 		if _, ok := tte[AttrExpr]; !ok {
 			tte[AttrExpr] = ""
 		}
@@ -159,7 +156,8 @@ func (a *AbstractNodeParser) Parse(element map[string]interface{}) (*NodeModel, 
 			Expr: tte[AttrExpr].(string),
 			Source: m,
 		}
-		m.Outputs.Add(transition)
+		m.SetOutputs(append(m.GetOutputs(), transition))
+		//m.Outputs = append(m.Outputs, transition)
 	}
 
 	//a.parseNode(m, element)
@@ -173,7 +171,7 @@ func (a *AbstractNodeParser) Parse(element map[string]interface{}) (*NodeModel, 
 }
 
 type ParseNode interface {
-	parseNode(model *NodeModel, element map[string]interface{}) error
+	parseNode(model INodeModel, element map[string]interface{}) error
 }
 
 // 子类可覆盖此方法，完成特定的解析
@@ -184,7 +182,7 @@ type ParseNode interface {
 //	return nil
 //}
 
-func (a *AbstractNodeParser) newModel() *NodeModel {
+func (a *AbstractNodeParser) newModel() interface{} {
 	panic("未实现此方法")
 }
 
@@ -204,16 +202,12 @@ func (s *StartParserFactory) NewParse() NodeParser {
 	return ss
 }
 
-func (s *StartParser) newModel() *NodeModel {
+func (s *StartParser) newModel() INodeModel {
 	newNode := NewNodeModel("", "")
 	startModel := &StartModel{ NodeModel: *newNode }
-	newNode.Child = startModel
 
-
-	return newNode
-	//return (*NodeModel) (unsafe.Pointer(&StartModel{
-	//	NodeModel: *newNode,
-	//}))
+	startModel.SetExec(startModel.exec)
+	return startModel
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,12 +227,12 @@ func (e *EndParserFactory) NewParse() NodeParser {
 	return end
 }
 
-func (e *EndParser) newModel() *NodeModel {
+func (e *EndParser) newModel() INodeModel {
 	newNode := NewNodeModel("", "")
 	endModel := &EndModel{ NodeModel: *newNode }
-	newNode.Child = endModel
 
-	return newNode
+	endModel.SetExec(endModel.exec)
+	return endModel
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,23 +251,22 @@ func (c *CustomParserFactory) NewParse() NodeParser {
 	return custom
 }
 
-func (c *CustomParser) newModel() *NodeModel {
+func (c *CustomParser) newModel() INodeModel {
 	newNode := NewNodeModel("", "")
 	workModel := WorkModel{ *newNode, "" }
 	customModel := &CustomModel{ workModel, "" }
-	newNode.Child = customModel
-	return newNode
+
+	customModel.SetExec(customModel.exec)
+	return customModel
 }
 
-func (a *CustomParser) parseNode(model *NodeModel, element map[string]interface{}) error {
-	customModel := (*CustomModel)(unsafe.Pointer(model))
+func (a *CustomParser) parseNode(model INodeModel, element map[string]interface{}) error {
+	customModel := model.(*CustomModel)
 	if element[AttrClazz] == nil {
 		return errors.New("自定义模型需要指定clazz")
 	}
 	customModel.Clazz = element[AttrClazz].(string)
 
-	cc := model.Child.(*CustomModel)
-	cc.Clazz = customModel.Clazz
 	return nil
 }
 
@@ -293,12 +286,12 @@ func (df *DecisionParserFactory) NewParse() NodeParser {
 	return d
 }
 
-func (df *DecisionParser) newModel() *NodeModel {
+func (df *DecisionParser) newModel() INodeModel {
 	newNode := NewNodeModel("", "")
 	decisionModel := &DecisionModel{ NodeModel: *newNode }
 
-	newNode.Child = decisionModel
-	return newNode
+	decisionModel.SetExec(decisionModel.exec)
+	return decisionModel
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -317,18 +310,18 @@ func (tf *TaskParserFactory) NewParse() NodeParser {
 	return t
 }
 
-func (tp *TaskParser) newModel() *NodeModel {
+func (tp *TaskParser) newModel() INodeModel {
 	newNode := NewNodeModel("", "")
 	workModel := WorkModel{ *newNode, "" }
 
 	taskModel := &TaskModel{ WorkModel: workModel }
 
-	newNode.Child = taskModel
-	return newNode
+	taskModel.SetExec(taskModel.exec)
+	return taskModel
 }
 
-func (tp *TaskParser) parseNode(model *NodeModel, element map[string]interface{}) error {
-	task := (*TaskModel)(unsafe.Pointer(model))
+func (tp *TaskParser) parseNode(model INodeModel, element map[string]interface{}) error {
+	task := model.(*TaskModel)
 	task.AssignTo = element[AttrAssignee].(string)
 
 	return nil
@@ -364,7 +357,7 @@ func (x *XmlParser) ParseXml(content string) (*ProcessModel, error) {
 				if m, err := x.parseModel(vvv); err != nil {
 					return nil, err
 				} else {
-					process.Nodes.Add(m)
+					process.Nodes = append(process.Nodes, m)
 				}
 			case reflect.Slice:
 				// 节点类型多个时
@@ -375,22 +368,19 @@ func (x *XmlParser) ParseXml(content string) (*ProcessModel, error) {
 					if m, err := x.parseModel(vvv); err != nil {
 						return nil, err
 					} else {
-						process.Nodes.Add(m)
+						process.Nodes = append(process.Nodes, m)
 					}
 				}
 			}
 		}
 
-		for _, node := range process.Nodes.Values() {
-			nodeModel := node.(*NodeModel)
-			for _, t := range nodeModel.Outputs.Values() {
-				transition := t.(*TransitionModel)
+		for _, node := range process.Nodes {
+			for _, transition := range node.GetOutputs() {
 				to := transition.To
-				for _, node2 := range process.Nodes.Values() {
-					nodeModel2 := node2.(*NodeModel)
-					if to == nodeModel2.Name {
-						nodeModel2.Inputs.Add(transition)
-						transition.Target = nodeModel2
+				for _, node2 := range process.Nodes {
+					if to == node2.GetName() {
+						transition.Target = node2
+						node2.SetInputs(append(node2.GetInputs(), transition))
 					}
 				}
 				if transition.Target == nil {
@@ -405,6 +395,6 @@ func (x *XmlParser) ParseXml(content string) (*ProcessModel, error) {
 }
 
 // 对流程定义xml的节点，根据其节点对应的解析器解析节点内容
-func (x *XmlParser) parseModel(node map[string]interface{}) (*NodeModel, error) {
+func (x *XmlParser) parseModel(node map[string]interface{}) (INodeModel, error) {
 	return x.ElementParserContainer.GetNodeParserFactory(node[ElementType].(string)).NewParse().Parse(node)
 }

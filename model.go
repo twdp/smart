@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/astaxie/beego/logs"
-	"github.com/emirpasic/gods/lists"
-	"github.com/emirpasic/gods/lists/arraylist"
 	"reflect"
 )
 
@@ -26,25 +24,73 @@ func (b *BaseModel) fire(handler Handler, ctx *Context) error {
 
 //////////////////////////////////////////////////////////////////////////////
 
+type INodeModel interface {
+	SetName(name string)
+	GetName() string
+	SetDisplayName(dName string)
+	GetDisplayName() string
+	SetInputs(ms []*TransitionModel)
+	GetInputs() []*TransitionModel
+	SetOutputs(ms []*TransitionModel)
+	GetOutputs() []*TransitionModel
+	SetExec(exec func(context *Context) error)
+
+	Execute(ctx *Context) error
+
+	runOutTransition(context *Context) error
+}
+
+func (n *NodeModel) SetName(name string) {
+	n.Name = name
+}
+
+func (n *NodeModel) GetName() string {
+	return n.Name
+}
+
+func (n *NodeModel) SetDisplayName(dName string) {
+	n.DisplayName = dName
+}
+
+func (n *NodeModel) GetDisplayName() string {
+	return n.DisplayName
+}
+
+func (n *NodeModel) SetInputs(ms []*TransitionModel) {
+	n.Inputs = ms
+}
+
+func (n *NodeModel) GetInputs()[]*TransitionModel {
+	return n.Inputs
+}
+
+func (n *NodeModel) SetOutputs(ms []*TransitionModel) {
+	n.Outputs = ms
+}
+
+func (n *NodeModel) GetOutputs() []*TransitionModel {
+	return n.Outputs
+}
+
+func (n *NodeModel) SetExec(exec func(context *Context) error) {
+	n.exec = exec
+}
+/////////////////////////////////////////////////////////////////////////////
+
 type NodeModel struct {
 	BaseModel
 
-	Inputs lists.List
+	Inputs []*TransitionModel
 
-	Outputs lists.List
+	Outputs []*TransitionModel
 
 	// 前置局部拦截器实例集合
-	PreInterceptors lists.List
+	PreInterceptors []Interceptor
 
 	// 后置局部拦截器实例集合
-	PostInterceptors lists.List
+	PostInterceptors []Interceptor
 
-	Child NodeModelChild
-}
-
-//
-type NodeModelChild interface {
-	exec(context *Context) error
+	exec func(context *Context) error
 }
 
 func NewNodeModel(name, displayName string) *NodeModel {
@@ -53,15 +99,14 @@ func NewNodeModel(name, displayName string) *NodeModel {
 			Name: name,
 			DisplayName: displayName,
 		},
-		Inputs: arraylist.New(),
-		Outputs: arraylist.New(),
-		PreInterceptors: arraylist.New(),
-		PostInterceptors: arraylist.New(),
 	}
 }
 
 //  对执行逻辑增加前置、后置拦截处理
 func (n *NodeModel) Execute(context *Context) error {
+	if n.exec == nil {
+		panic("node model exec is nil.")
+	}
 	if err := n.intercept(n.PreInterceptors, context); err != nil {
 		return err
 	} else if err = n.exec(context); err != nil {
@@ -71,20 +116,19 @@ func (n *NodeModel) Execute(context *Context) error {
 	}
 	return nil
 }
-
-// 具体节点模型需要完成的执行逻辑
-func (n *NodeModel) exec(context *Context) error {
-	if n.Child == nil {
-		panic("初始化NodeModel时，请设置Child")
-	}
-	return n.Child.exec(context)
-}
+//
+//// 具体节点模型需要完成的执行逻辑
+//func (n *NodeModel) exec(context *Context) error {
+//	if n.Child == nil {
+//		panic("初始化NodeModel时，请设置Child")
+//	}
+//	return n.Child.exec(context)
+//}
 
 // 拦截方法
-func (n *NodeModel) intercept(interceptors lists.List, context *Context) error {
-	for _, v := range interceptors.Values() {
-		interceptor := v.(Interceptor)
-		if err := interceptor.Intercept(context); err != nil {
+func (n *NodeModel) intercept(interceptors []Interceptor, context *Context) error {
+	for _, v := range interceptors {
+		if err := v.Intercept(context); err != nil {
 			return err
 		}
 	}
@@ -93,8 +137,8 @@ func (n *NodeModel) intercept(interceptors lists.List, context *Context) error {
 
 // 运行变迁继续执行
 func (n *NodeModel) runOutTransition(context *Context) error {
-	for _, v := range n.Outputs.Values() {
-		tm := v.(*TransitionModel)
+	for _, v := range n.Outputs {
+		tm := v
 		tm.Enable = true
 		if err := tm.Execute(context); err != nil {
 			return err
@@ -109,14 +153,14 @@ func (n *NodeModel) runOutTransition(context *Context) error {
  * 1、满足中间无fork、join、subprocess模型
  * 2、满足父节点模型如果为任务模型时，参与类型为any
  */
-func (n *NodeModel) CanRejected(current *NodeModel, parent *NodeModel) bool {
+func (n *NodeModel) CanRejected(current INodeModel, parent *NodeModel) bool {
 	switch t := (interface{})(parent).(type) {
 	case *TaskModel:
 		return t.PerformType == PerformtypeAll
 	}
 	result := false
-	for _, e := range n.Outputs.Values() {
-		tm := e.(*TransitionModel)
+	for _, e := range n.Outputs {
+		tm := e
 		source := tm.Source
 		if source == parent {
 			return true
@@ -140,22 +184,22 @@ func (n *NodeModel) CanRejected(current *NodeModel, parent *NodeModel) bool {
 	return result
 }
 
-func (n *NodeModel) getNextModels(clazz interface{}) lists.List {
-	r := arraylist.New()
+func (n *NodeModel) getNextModels(clazz interface{}) []INodeModel {
+	var r []INodeModel
 	c := reflect.TypeOf(clazz)
-	for _, o := range n.Outputs.Values() {
-		n.AddNextModels(r, o.(*TransitionModel), c)
+	for _, o := range n.Outputs {
+		n.AddNextModels(r, o, c)
 	}
 	return r
 }
 
-func (n *NodeModel) AddNextModels(r lists.List, tm *TransitionModel, t reflect.Type) {
+func (n *NodeModel) AddNextModels(r []INodeModel, tm *TransitionModel, t reflect.Type) {
 	target := reflect.TypeOf(tm.Target)
 	if t.AssignableTo(target) {
-		r.Add(tm.Target)
+		r = append(r, tm.Target)
 	} else {
-		for _, o := range tm.Target.Outputs.Values() {
-			n.AddNextModels(r, o.(*TransitionModel), t)
+		for _, o := range tm.Target.GetOutputs() {
+			n.AddNextModels(r, o, t)
 		}
 	}
 }
@@ -170,10 +214,10 @@ type TransitionModel struct {
 	Enable bool
 
 	// 变迁的目标节点应用
-	Target *NodeModel
+	Target INodeModel
 
 	// 变迁的源节点引用
-	Source *NodeModel
+	Source INodeModel
 
 	// 变迁的目标节点name名称
 	To string
@@ -191,7 +235,25 @@ func (t *TransitionModel) Execute(context *Context) error {
 	}
 
 	//如果目标节点模型为TaskModel，则创建task
-	if isTask, ok := t.Target.Child.(*TaskModel); ok {
+	//switch (interface{})(t.Target).(type) {
+	//case TaskModel:
+	//	isTask := (interface{})(t.Target).(*TaskModel)
+	//	if err :=  t.fire(&CreateTaskHandler{
+	//		TaskModel: isTask,
+	//	}, context); err != nil {
+	//		return err
+	//	}
+	//	// todo:: 当前只针对taskModel
+	//	// 预生成所有任务
+	//	if context.ProcessModel.Process.PreGeneratedTask {
+	//		return isTask.runOutTransition(context)
+	//	}
+	//default:
+	//	if err :=  t.Target.Execute(context); err != nil {
+	//		return err
+	//	}
+	//}
+	if isTask, ok := t.Target.(*TaskModel); ok {
 		if err :=  t.fire(&CreateTaskHandler{
 			TaskModel: isTask,
 		}, context); err != nil {
@@ -202,22 +264,28 @@ func (t *TransitionModel) Execute(context *Context) error {
 		if context.ProcessModel.Process.PreGeneratedTask {
 			return isTask.runOutTransition(context)
 		}
-	} else if isSubProcess, ok := t.Target.Child.(*SubProcessModel); ok {
+	} else if isSubProcess, ok := t.Target.(*SubProcessModel); ok {
 		//如果目标节点模型为SubProcessModel，则启动子流程
 
 		return t.fire(&StartSubProcessHandler{
 			SubProcessModel: isSubProcess,
 		}, context)
+	} else if isDecision, ok := t.Target.(*DecisionModel); ok {
+		//如果目标节点模型为其它控制类型，则继续由目标节点执行
+		if err := isDecision.Execute(context); err != nil {
+			return err
+		}
 	} else {
 		//如果目标节点模型为其它控制类型，则继续由目标节点执行
 		if err :=  t.Target.Execute(context); err != nil {
 			return err
 		}
+		// custom model
 		// todo:: 当前只针对taskModel
 		// 预生成所有任务
-		//if context.ProcessModel.Process.PreGeneratedTask {
-		//	return t.Target.runOutTransition(context)
-		//}
+		if context.ProcessModel.Process.PreGeneratedTask {
+			return t.Target.runOutTransition(context)
+		}
 	}
 	return nil
 }
@@ -286,8 +354,8 @@ func (d *DecisionModel) exec(context *Context) error {
 	logs.Info("%d->decision execution.getArgs():%v", context.Instance.Id, context.Args)
 
 	isFound := false
-	for _, e := range d.Outputs.Values() {
-		tm := e.(*TransitionModel)
+	for _, e := range d.Outputs {
+		tm := e
 
 		if "" != tm.Expr && context.Engine.Expression().Eval(tm.Expr, context.Args) {
 			tm.Enable = true
@@ -332,7 +400,7 @@ type ProcessModel struct {
 	BaseModel
 
 	// 节点元素集合
-	Nodes lists.List
+	Nodes []INodeModel
 
 	//TaskModels lists.List
 
@@ -345,7 +413,7 @@ func NewProcess(name, displayName string) *ProcessModel {
 			Name: name,
 			DisplayName: displayName,
 		},
-		Nodes: arraylist.New(),
+		//Nodes: arraylist.New(),
 		//TaskModels: arraylist.New(),
 	}
 }
@@ -353,29 +421,30 @@ func NewProcess(name, displayName string) *ProcessModel {
 
 func (p *ProcessModel) GetWorkModels() list.List {
 	r := list.New()
-	for _, e := range p.Nodes.Values() {
-		if _, ok := (e.(*NodeModel).Child).(*WorkModel); ok {
+	for _, e := range p.Nodes {
+		if _, ok := e.(*WorkModel); ok {
 			r.PushBack(e)
 		}
 	}
 	return *r
 }
 
-func (p *ProcessModel) GetStart() (*NodeModel, error) {
-	for _, e := range p.Nodes.Values() {
-		if _, ok := (e.(*NodeModel).Child).(*StartModel); ok {
-			return e.(*NodeModel), nil
+var tt = reflect.TypeOf(&StartModel{})
+
+func (p *ProcessModel) GetStart() (INodeModel, error) {
+	for _, e := range p.Nodes {
+		if s, ok := e.(*StartModel); ok {
+			return s, nil
 		}
 	}
 	return nil, errors.New("没有start节点")
 }
 
 func (p *ProcessModel) GetNode(nodeName string) (*NodeModel, error) {
-	for _, e := range p.Nodes.Values() {
-		if v, ok := e.(*NodeModel); ok {
-			if v.Name == nodeName {
-				return v, nil
-			}
+	for _, e := range p.Nodes {
+		ee := e.(*NodeModel)
+		if ee.Name == nodeName {
+			return ee, nil
 		}
 	}
 

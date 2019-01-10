@@ -11,11 +11,12 @@ const (
 	ProcessInit = iota
 	ProcessRunning
 	ProcessStop
+)
 
+const (
+	PerformtypeAny = iota // 普通任务
 
-	PerformtypeAll = iota // 参与者fork任务,所有人均需要处理
-	PerformtypeAny   // 普通任务
-
+	PerformtypeAll // 参与者fork任务,所有人均需要处理
 )
 
 type Base struct {

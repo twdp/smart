@@ -24,6 +24,7 @@ type AA struct {
 
 func (a *AA) Execute(context *smart.Context) error {
 	context.Args["result"] = true
+	fmt.Println("custom ....")
 	return nil
 }
 
