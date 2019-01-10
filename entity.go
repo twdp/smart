@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/orm"
+	"time"
 )
 
 const (
@@ -19,9 +20,9 @@ const (
 
 type Base struct {
 
-	CreatedAt orm.DateTimeField `orm:"auto_now_add"`
+	CreatedAt time.Time `orm:"auto_now_add"`
 
-	UpdatedAt orm.DateTimeField `orm:"auto_now"`
+	UpdatedAt time.Time `orm:"auto_now"`
 }
 
 func init() {
@@ -48,9 +49,11 @@ type Process struct {
 	Status int8
 
 	// 流程定义内容
-	Content string
+	Content string `orm:"type(text)"`
 
-	Base
+	CreatedAt orm.DateTimeField `orm:"auto_now_add"`
+
+	UpdatedAt orm.DateTimeField `orm:"auto_now"`
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,7 +70,7 @@ type Instance struct {
 	ProcessId int64
 
 	// 流程实例内容
-	Content string
+	Content string `orm:"type(text)"`
 
 	// 发布者
 	Deployer string

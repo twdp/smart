@@ -308,6 +308,7 @@ func (j *JoinModel) exec(context *Context) error {
 	return nil
 }
 // todo::
+// process model 由于nodeModel Child原因,不能进行序列话
 type ProcessModel struct {
 
 	BaseModel

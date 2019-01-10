@@ -2,6 +2,8 @@ package smart
 
 import (
 	"fmt"
+	"github.com/astaxie/beego/logs"
+	"github.com/pkg/errors"
 	"tianwei.pro/kit/di"
 )
 
@@ -10,6 +12,8 @@ var Di = di.New()
 type Engine interface {
 
 	Parser() Parser
+
+	Cache() CacheManager
 
 	Instance() InstanceService
 
@@ -74,6 +78,13 @@ func (s *SmartEngine) Parser() Parser {
 	return s.parser
 }
 
+func (s *SmartEngine) Cache() CacheManager {
+	if s.cache == nil {
+		panic("缓存管理器未设置")
+	}
+	return s.cache
+}
+
 func (s *SmartEngine) Instance() InstanceService {
 	if s.instance == nil {
 		panic("未设置流程实例service")
@@ -110,14 +121,17 @@ func (s *SmartEngine) StartInstanceByIdAndOperatorAndArgs(id int64, operator str
 		args = make(map[string]interface{})
 	}
 	process := s.Process().GetProcessById(id)
-
+	if process.Status != ProcessRunning {
+		logs.Error("process not running. id: %d", id)
+		return nil, errors.New("流程未激活")
+	}
 	return s.startProcess(process, operator, args)
 }
 
 func (s *SmartEngine) startProcess(process *Process, operator string, args map[string]interface{}) (*Instance, error) {
 	if context, err := s.execute(process, operator, args, 0, ""); nil != err {
 		return nil, err
-	} else if pm, err := s.Process().ParseProcess(process); err != nil {
+	} else if pm, err := s.Process().ParseProcess(process.Content); err != nil {
 		return nil, err
 	} else {
 		context.ProcessModel = pm
