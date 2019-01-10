@@ -1,5 +1,10 @@
 package smart
 
+import (
+	"encoding/json"
+	"github.com/astaxie/beego/logs"
+	"github.com/astaxie/beego/orm"
+)
 
 const (
 	ProcessInit = iota
@@ -12,6 +17,16 @@ const (
 
 )
 
+type Base struct {
+
+	CreatedAt orm.DateTimeField `orm:"auto_now_add"`
+
+	UpdatedAt orm.DateTimeField `orm:"auto_now"`
+}
+
+func init() {
+	orm.RegisterModelWithPrefix("smart_", &Process{}, &Instance{}, &Task{})
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 流程定义实体类
@@ -34,6 +49,8 @@ type Process struct {
 
 	// 流程定义内容
 	Content string
+
+	Base
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +74,42 @@ type Instance struct {
 
 
 	// 流程实例附属变量
-	Variable map[string]interface{}
+	variable map[string]interface{} `orm:"-"`
+
+	VariableJson string `orm:"type(text)"`
+
+	CreatedBy string `orm:"size(64);index"`// 谁创建的
+
+	Base
+
+}
+
+func (i *Instance) SetVariable(m map[string]interface{}) {
+	mm, err := json.Marshal(m)
+	if err != nil {
+		logs.Error("marshal variable failed. m: %v, err: %v", m, err)
+	}
+	i.VariableJson = string(mm)
+}
+
+func (i *Instance) GetVariable() map[string]interface{} {
+	if i.variable == nil && i.VariableJson != ""{
+		i.variable = make(map[string]interface{})
+		err := json.Unmarshal([]byte(i.VariableJson), i.variable)
+		if err != nil {
+			logs.Error("unmarshal instance variable failed. variable: %v, err: %v", i.VariableJson, err)
+		}
+		return i.variable
+	} else if i.variable == nil {
+		i.variable = make(map[string]interface{})
+		return i.variable
+	} else {
+		return i.variable
+	}
+}
+
+func (i *Instance) AddVariable(n string, p interface{}) {
+	i.GetVariable()[n] = p
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,7 +119,6 @@ type Instance struct {
 // 多长时间自动过期
 // 延迟执行时间
 type Task struct {
-
 	Id int64
 
 	InstanceId int64
@@ -77,10 +128,45 @@ type Task struct {
 	TaskDisplayName string
 
 	// 任务分配给谁
-	AssignTo string
+	AssignTo string `orm:"size(64);index"`
 
-	Variable map[string]interface{}
+	variable map[string]interface{} `orm:"-"`
+
+	VariableJson string `orm:"type(text)"`
+
+	Base
+
 }
+
+
+func (i *Task) SetVariable(m map[string]interface{}) {
+	mm, err := json.Marshal(m)
+	if err != nil {
+		logs.Error("marshal variable failed. m: %v, err: %v", m, err)
+	}
+	i.VariableJson = string(mm)
+}
+
+func (i *Task) GetVariable() map[string]interface{} {
+	if i.variable == nil && i.VariableJson != ""{
+		i.variable = make(map[string]interface{})
+		err := json.Unmarshal([]byte(i.VariableJson), i.variable)
+		if err != nil {
+			logs.Error("unmarshal instance variable failed. variable: %v, err: %v", i.VariableJson, err)
+		}
+		return i.variable
+	} else if i.variable == nil {
+		i.variable = make(map[string]interface{})
+		return i.variable
+	} else {
+		return i.variable
+	}
+}
+
+func (i *Task) AddVariable(n string, p interface{}) {
+	i.GetVariable()[n] = p
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
