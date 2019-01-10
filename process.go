@@ -22,7 +22,7 @@ type ProcessService interface {
 	// 根据主键ID获取流程定义对象
 	GetProcessById(id int64) *Process
 
-	ParseProcess(content string) (*ProcessModel, error)
+	ParseProcess(process *Process) (*ProcessModel, error)
 
 	SaveProcess(process *Process) error
 
@@ -50,8 +50,13 @@ func (s *SmartProcessService) Check(process *Process, idOrName string) error {
 	return nil
 }
 
-func (s *SmartProcessService) ParseProcess(content string) (*ProcessModel, error) {
-	return s.engine.Parser().ParseXml(content)
+func (s *SmartProcessService) ParseProcess(process *Process) (*ProcessModel, error) {
+	if pm, err := s.engine.Parser().ParseXml(process.Content); err != nil {
+		return pm, err
+	} else {
+		pm.Process = process
+		return pm, err
+	}
 }
 
 
@@ -71,7 +76,7 @@ func (s *SmartProcessService) GetProcessById(id int64) *Process {
 }
 
 func (s *SmartProcessService) SaveProcess(process *Process) error {
-	if _, err := s.ParseProcess(process.Content); err != nil {
+	if _, err := s.ParseProcess(process); err != nil {
 		return err
 	} else {
 		s.Lock()

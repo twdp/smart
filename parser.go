@@ -104,6 +104,7 @@ func NewDefaultSmartParserContainer() *DefaultSnakerParserContainer {
 	container["end"] = &EndParserFactory{}
 	container["task"] = &TaskParserFactory{}
 	container["decision"] = &DecisionParserFactory{}
+	container["custom"] = &CustomParserFactory{}
 
 
 	return &DefaultSnakerParserContainer{
@@ -270,6 +271,9 @@ func (a *CustomParser) parseNode(model *NodeModel, element map[string]interface{
 		return errors.New("自定义模型需要指定clazz")
 	}
 	customModel.Clazz = element[AttrClazz].(string)
+
+	cc := model.Child.(*CustomModel)
+	cc.Clazz = customModel.Clazz
 	return nil
 }
 
@@ -388,6 +392,9 @@ func (x *XmlParser) ParseXml(content string) (*ProcessModel, error) {
 						nodeModel2.Inputs.Add(transition)
 						transition.Target = nodeModel2
 					}
+				}
+				if transition.Target == nil {
+					panic("transition target is nil. ---> " + transition.Name + " ---> targetName: " + transition.To)
 				}
 			}
 		}

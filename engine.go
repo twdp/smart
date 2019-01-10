@@ -131,7 +131,7 @@ func (s *SmartEngine) StartInstanceByIdAndOperatorAndArgs(id int64, operator str
 func (s *SmartEngine) startProcess(process *Process, operator string, args map[string]interface{}) (*Instance, error) {
 	if context, err := s.execute(process, operator, args, 0, ""); nil != err {
 		return nil, err
-	} else if pm, err := s.Process().ParseProcess(process.Content); err != nil {
+	} else if pm, err := s.Process().ParseProcess(process); err != nil {
 		return nil, err
 	} else {
 		context.ProcessModel = pm

@@ -189,11 +189,19 @@ func (t *TransitionModel) Execute(context *Context) error {
 	if !t.Enable {
 		return nil
 	}
+
 	//如果目标节点模型为TaskModel，则创建task
 	if isTask, ok := t.Target.Child.(*TaskModel); ok {
-		return t.fire(&CreateTaskHandler{
+		if err :=  t.fire(&CreateTaskHandler{
 			TaskModel: isTask,
-		}, context)
+		}, context); err != nil {
+			return err
+		}
+		// todo:: 当前只针对taskModel
+		// 预生成所有任务
+		if context.ProcessModel.Process.PreGeneratedTask {
+			return isTask.runOutTransition(context)
+		}
 	} else if isSubProcess, ok := t.Target.Child.(*SubProcessModel); ok {
 		//如果目标节点模型为SubProcessModel，则启动子流程
 
@@ -202,7 +210,14 @@ func (t *TransitionModel) Execute(context *Context) error {
 		}, context)
 	} else {
 		//如果目标节点模型为其它控制类型，则继续由目标节点执行
-		return t.Target.Execute(context)
+		if err :=  t.Target.Execute(context); err != nil {
+			return err
+		}
+		// todo:: 当前只针对taskModel
+		// 预生成所有任务
+		//if context.ProcessModel.Process.PreGeneratedTask {
+		//	return t.Target.runOutTransition(context)
+		//}
 	}
 	return nil
 }
@@ -252,6 +267,9 @@ type CustomModel struct {
 
 // 从di容器中查找指定的实例
 func (c *CustomModel) exec(context *Context) error {
+	if Di.GetByName(c.Clazz) == nil {
+		panic(fmt.Sprintf("custom clazz not exist. clazz: %s", c.Clazz))
+	}
 	return Di.GetByName(c.Clazz).(Delegation).Execute(context)
 }
 

@@ -18,5 +18,8 @@ func TestSmartExpression_Eval(t *testing.T) {
 
 	parameters["foo"] = 1
 	fmt.Println(s.Eval("foo > 0", parameters))
+	parameters["r"] = true
+	fmt.Println(s.Eval("r", parameters))
+	fmt.Println(s.Eval("!r", parameters))
 
 }

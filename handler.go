@@ -22,7 +22,8 @@ func (e *EndProcessHandler) Handle(ctx *Context) error {
 	// 结束当前流程实例
 
 	// 如果存在父流程，则重新构造Context执行对象，交给父流程的SubProcessModel模型execute
-	panic("implement me")
+	fmt.Println("流程结束")
+	return nil
 }
 
 type AbstractMergeHandler struct {
