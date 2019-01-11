@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/astaxie/beego/logs"
 	"github.com/pkg/errors"
+	"strconv"
 	"tianwei.pro/kit/di"
 )
 
@@ -121,6 +122,9 @@ func (s *SmartEngine) StartInstanceByIdAndOperatorAndArgs(id int64, operator str
 		args = make(map[string]interface{})
 	}
 	process := s.Process().GetProcessById(id)
+	if err := s.Process().Check(process, strconv.FormatInt(id, 10)); err != nil {
+		return nil, err
+	}
 	if process.Status != ProcessRunning {
 		logs.Error("process not running. id: %d", id)
 		return nil, errors.New("流程未激活")

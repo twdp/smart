@@ -3,5 +3,5 @@ package smart
 //
 type Delegation interface {
 	//
-	Execute(context *Context) error
+	Execute(context *Context, model INodeModel) error
 }
