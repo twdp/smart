@@ -14,6 +14,13 @@ const (
 )
 
 const (
+	TaskInit = iota
+	TaskRunning
+	TaskEnd
+	TaskExpired
+)
+
+const (
 	PerformtypeAny = iota // 普通任务
 
 	PerformtypeAll // 参与者fork任务,所有人均需要处理
@@ -150,6 +157,10 @@ type Task struct {
 	variable map[string]interface{} `orm:"-"`
 
 	VariableJson string `orm:"type(text)"`
+
+	Status int8
+
+	Result string
 
 	Base
 

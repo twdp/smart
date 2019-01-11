@@ -234,25 +234,6 @@ func (t *TransitionModel) Execute(context *Context) error {
 		return nil
 	}
 
-	//如果目标节点模型为TaskModel，则创建task
-	//switch (interface{})(t.Target).(type) {
-	//case TaskModel:
-	//	isTask := (interface{})(t.Target).(*TaskModel)
-	//	if err :=  t.fire(&CreateTaskHandler{
-	//		TaskModel: isTask,
-	//	}, context); err != nil {
-	//		return err
-	//	}
-	//	// todo:: 当前只针对taskModel
-	//	// 预生成所有任务
-	//	if context.ProcessModel.Process.PreGeneratedTask {
-	//		return isTask.runOutTransition(context)
-	//	}
-	//default:
-	//	if err :=  t.Target.Execute(context); err != nil {
-	//		return err
-	//	}
-	//}
 	if isTask, ok := t.Target.(*TaskModel); ok {
 		if err :=  t.fire(&CreateTaskHandler{
 			TaskModel: isTask,
@@ -260,13 +241,14 @@ func (t *TransitionModel) Execute(context *Context) error {
 			return err
 		}
 		// todo:: 当前只针对taskModel
+		// todo:: 如果当前流程支持预生成，并且是预生成，则CreateTaskHandler
+		//        否则，直接查找到这个任务，然后将任务设置为激活状态
 		// 预生成所有任务
-		if context.ProcessModel.Process.PreGeneratedTask {
-			return isTask.runOutTransition(context)
-		}
+		//if context.ProcessModel.Process.PreGeneratedTask {
+		//	return isTask.runOutTransition(context)
+		//}
 	} else if isSubProcess, ok := t.Target.(*SubProcessModel); ok {
 		//如果目标节点模型为SubProcessModel，则启动子流程
-
 		return t.fire(&StartSubProcessHandler{
 			SubProcessModel: isSubProcess,
 		}, context)
@@ -279,12 +261,6 @@ func (t *TransitionModel) Execute(context *Context) error {
 		//如果目标节点模型为其它控制类型，则继续由目标节点执行
 		if err :=  t.Target.Execute(context); err != nil {
 			return err
-		}
-		// custom model
-		// todo:: 当前只针对taskModel
-		// 预生成所有任务
-		if context.ProcessModel.Process.PreGeneratedTask {
-			return t.Target.runOutTransition(context)
 		}
 	}
 	return nil
@@ -394,7 +370,7 @@ func (j *JoinModel) exec(context *Context) error {
 	return nil
 }
 // todo::
-// process model 由于nodeModel Child原因,不能进行序列话
+// bugfix:: 不能进行序列话
 type ProcessModel struct {
 
 	BaseModel
@@ -413,8 +389,6 @@ func NewProcess(name, displayName string) *ProcessModel {
 			Name: name,
 			DisplayName: displayName,
 		},
-		//Nodes: arraylist.New(),
-		//TaskModels: arraylist.New(),
 	}
 }
 
@@ -475,12 +449,15 @@ type TaskModel struct {
 	TaskType int8
 
 	// 期望用时
+	// todo:
 	ExpectTime string
 
 	// 提醒时间
+	// todo:
 	RemindTime string
 
 	// 提醒间隔(分钟)
+	// todo:
 	RemindRepeat string
 
 	// 是否自动执行
