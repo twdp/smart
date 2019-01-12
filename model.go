@@ -36,8 +36,6 @@ type INodeModel interface {
 	SetExec(exec func(context *Context) error)
 
 	Execute(ctx *Context) error
-
-	RunOutTransition(context *Context) error
 }
 
 func (n *NodeModel) SetName(name string) {
@@ -133,10 +131,6 @@ func (n *NodeModel) intercept(interceptors []Interceptor, context *Context) erro
 		}
 	}
 	return nil
-}
-
-func (n *NodeModel) RunOutTransition(context *Context) error {
-	return n.runOutTransition(context)
 }
 
 // 运行变迁继续执行
@@ -318,7 +312,11 @@ func (c *CustomModel) exec(context *Context) error {
 	if Di.GetByName(c.Clazz) == nil {
 		panic(fmt.Sprintf("custom clazz not exist. clazz: %s", c.Clazz))
 	}
-	return Di.GetByName(c.Clazz).(Delegation).Execute(context, c)
+	if err := Di.GetByName(c.Clazz).(Delegation).Execute(context); err != nil {
+		return nil
+	} else {
+		return c.runOutTransition(context)
+	}
 }
 
 // 决策定义decision元素

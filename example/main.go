@@ -22,10 +22,10 @@ type AA struct {
 
 }
 
-func (a *AA) Execute(context *smart.Context, model smart.INodeModel) error {
+func (a *AA) Execute(context *smart.Context) error {
 	context.Args["result"] = true
 	fmt.Println("custom ....")
-	return model.RunOutTransition(context)
+	return nil
 }
 
 func main() {
