@@ -3,11 +3,16 @@ package smart
 import (
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/orm"
+	"github.com/pkg/errors"
 )
 
 type InstanceService interface {
 
+	// 根据流程、操作人员、父流程实例ID创建流程实例
 	CreateInstanceUseParentInfo(process *Process, operator string, args map[string]interface{}, parentId int64, parentNodeName string) (*Instance, error)
+
+	// 更新流程实例
+	UpdateInstance(instance *Instance) error
 }
 
 type SmartInstanceService struct {
@@ -41,7 +46,17 @@ func (s *SmartInstanceService) CreateInstanceUseParentInfo(process *Process, ope
 	instance.SetVariable(args)
 	if _, err := orm.NewOrm().Insert(instance); err != nil {
 		logs.Error("create instance failed. process: %v, err: %v", *process, err)
+		return nil, errors.New("创建流程实例失败")
 	}
 
 	return instance, nil
+}
+
+func (s *SmartInstanceService) UpdateInstance(instance *Instance) error {
+	_, err := orm.NewOrm().Update(instance)
+	if nil != err {
+		logs.Error("update instance failed. instance: %v, err: %v", instance, err)
+		return errors.New("更新实例失败")
+	}
+	return nil
 }

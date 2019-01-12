@@ -1,7 +1,6 @@
 package smart
 
 import (
-	"fmt"
 	"github.com/astaxie/beego/logs"
 	"github.com/pkg/errors"
 	"strconv"
@@ -155,7 +154,6 @@ func (s *SmartEngine) execute(process *Process, operator string, args map[string
 	if instance, err := s.Instance().CreateInstanceUseParentInfo(process, operator, args, parentId, parentNodeName); err != nil {
 		return nil, err
 	} else {
-		fmt.Println(instance)
 		current := &Context{
 			Engine: s,
 			Instance: instance,
