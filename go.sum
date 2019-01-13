@@ -51,5 +51,7 @@ gopkg.in/yaml.v2 v2.2.1 h1:mUhvW9EsL+naU5Q3cakzfE91YhliOondGd6ZrsDBHQE=
 gopkg.in/yaml.v2 v2.2.1/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 tianwei.pro/beego-guava v0.0.0-20190108132444-348c37386e91 h1:hw0/MOJnGkOv9OC2i++itqJprbZnRvEceIF/mbN2gEA=
 tianwei.pro/beego-guava v0.0.0-20190108132444-348c37386e91/go.mod h1:8Zp0HlkTmlTFCmmN2S0SEA/Y2HTLHrBBwryQrlI0ND8=
+tianwei.pro/business v0.0.0-20190113035810-87409923d884 h1:j5TITVwXlVzxdL6tuI4/dijXtZTmqkYafiOaXeUgx+0=
+tianwei.pro/business v0.0.0-20190113035810-87409923d884/go.mod h1:9Ftjgn0/yGnCxcnWJ+XjXRO9yLR3S3bjZWfm8noQYg8=
 tianwei.pro/kit v0.0.0-20190108124826-8c52574fbcb8 h1:GHAitVfGGqqlheAObJblr34+xYH/IZicBYycR/DjcXM=
 tianwei.pro/kit v0.0.0-20190108124826-8c52574fbcb8/go.mod h1:/B8fqypxnWXQz1Iwdb24TLsfhJPlgV4BpJVih8X4Zg0=
